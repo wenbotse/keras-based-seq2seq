@@ -23,7 +23,7 @@ input_characters = set()
 target_characters = set()
 with open(data_path, 'r') as f:
     lines = f.read().split('\n')
-num_samples = 1000 #len(lines)  # Number of samples to train on.
+num_samples = len(lines)  # Number of samples to train on.
 for line in lines[: min(num_samples, len(lines) - 1)]:
     input_text, target_text = line.split('=====')
     # We use "tab" as the "start sequence" character
@@ -118,10 +118,12 @@ reverse_target_char_index = dict(
 def decode_sequence(input_seq):
     # Encode the input as state vectors.
     states_value = encoder_model.predict(input_seq)
+    '''
     print('input_seq')
     print(input_seq)
     print('states_value')
     print(states_value)
+    '''
     # Generate empty target sequence of length 1.
     target_seq = np.zeros((1, 1, num_decoder_tokens))
     # Populate the first character of target sequence with the start character.
@@ -156,13 +158,11 @@ def decode_sequence(input_seq):
     return decoded_sentence
 
 
-for seq_index in range(1):
+for seq_index in range(10):
     # Take one sequence (part of the training set)
     # for trying out decoding.
     input_seq = encoder_input_data[seq_index: seq_index + 1]
-    print('input_seq.shape')
-    print(input_seq.shape)
+    print('predict no-'+str(seq_index+1)+' input_seq.shape', input_seq.shape)
     decoded_sentence = decode_sequence(input_seq)
-    print('predict no-'+str(seq_index))
-    print('Input sentence:', input_texts[seq_index])
-    print('Decoded sentence:', decoded_sentence)
+    print('\tInput sentence:', input_texts[seq_index])
+    print('\tDecoded sentence:', decoded_sentence)
