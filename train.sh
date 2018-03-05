@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=2 python3 lstm_seq2seq_callback.py

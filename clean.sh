@@ -1,0 +1,9 @@
+rm -rf nohup.out
+rm -rf target_token_index.pkl
+rm -rf input_token_index.pkl
+rm -rf decoder_model.h5*
+rm -rf encoder_model.h5*
+rm -rf encoder_model.json*
+rm -rf decoder_model.json*
+rm -rf s2s.h5*
+rm -rf model.json*
