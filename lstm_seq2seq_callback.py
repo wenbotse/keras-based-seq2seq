@@ -31,7 +31,7 @@ with open(data_path, 'r') as f:
 #np.random.shuffle(indices)
 #lines = lines[indices]
 
-#np.random.shuffle(lines)
+np.random.shuffle(lines)
 
 print('after shuffle='+lines[1])
 for line in lines[: min(num_samples, len(lines) - 1)]:
