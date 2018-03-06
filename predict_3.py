@@ -11,7 +11,7 @@ epochs = 100  # Number of epochs to train for.
 latent_dim = 256  # Latent dimensionality of the encoding space.
 
 # Path to the data txt file on disk.
-data_path = 'train_data.txt'
+data_path = 'test_data.txt'
 
 # Vectorize the data.  We use the same approach as the training script.
 # NOTE: the data must be identical, in order for the character -> integer
@@ -24,7 +24,10 @@ target_characters = set()
 with open(data_path, 'r') as f:
     lines = f.read().split('\n')
 num_samples = len(lines)  # Number of samples to train on.
+np.random.shuffle(lines)
 for line in lines[: min(num_samples, len(lines) - 1)]:
+    if len(line.split('=====')) != 2:
+        continue
     input_text, target_text = line.split('=====')
     # We use "tab" as the "start sequence" character
     # for the targets, and "\n" as "end sequence" character.
@@ -158,7 +161,7 @@ def decode_sequence(input_seq):
     return decoded_sentence
 
 
-for seq_index in range(20):
+for seq_index in range(num_samples):
     # Take one sequence (part of the training set)
     # for trying out decoding.
     input_seq = encoder_input_data[seq_index: seq_index + 1]
