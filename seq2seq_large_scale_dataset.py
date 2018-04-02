@@ -13,13 +13,14 @@ import gc
 import time
 import tensorflow as tf  
 from keras import backend as K  
+from keras.callbacks import TensorBoard
 
 
 np.set_printoptions(threshold=np.inf)
 
-batch_size = 64  # Batch size for training.
+batch_size = 128  # Batch size for training.
 
-validate_batch_size = 512
+validate_batch_size = 1024
 
 epochs = 1000  # Number of epochs to train for.
 latent_dim = 256  # Latent dimensionality of the encoding space.
@@ -43,12 +44,32 @@ def getMemCpu():
 
 
 # compute dict & some length
-with open(data_path, 'r') as f:
+'''with open(data_path, 'r') as f:
     lines = f.read().split('\n')    
     for line in lines:
         if len(line.split('=====')) != 2:
             continue 
         input_text, target_text = line.split('=====')
+        target_text = '\t' + target_text + '\n'
+        if max_encoder_seq_length < len(input_text):
+            max_encoder_seq_length = len(input_text)
+        if max_decoder_seq_length < len(target_text):
+            max_decoder_seq_length = len(target_text)
+        for char in input_text:
+            if char not in input_characters:
+                   input_characters.add(char)
+        for char in target_text:
+            if char not in target_characters:
+                target_characters.add(char)
+        real_sample_size+=1
+'''
+
+with open(data_path, 'r') as f:
+    for line in f:
+        if len(line.split('=====')) != 2:
+            continue 
+        input_text, target_text = line.split('=====')
+        target_text = '\t' + target_text + '\n'
         if max_encoder_seq_length < len(input_text):
             max_encoder_seq_length = len(input_text)
         if max_decoder_seq_length < len(target_text):
@@ -212,17 +233,19 @@ def generate_validation_data_from_file(path, batch_size):
     valid_encoder_input_data = np.zeros((validate_batch_size, max_encoder_seq_length, num_encoder_tokens),dtype='float32')
     valid_decoder_input_data = np.zeros((validate_batch_size, max_decoder_seq_length, num_decoder_tokens),dtype='float32')
     valid_decoder_target_data = np.zeros((validate_batch_size, max_decoder_seq_length, num_decoder_tokens),dtype='float32') 
-    print(' enter generate_validation_data_from_file')
     j = 0
+    totalGenCnt = 0
+    validdation_data_idx = 0
     while True:
         print(' enter generate_validation_data_from_file loop')
-        with open(data_path) as f:
+        with open(test_data_path) as f:
             for line in f:
                 try:
                     #print('i=',i,' batch_size=',batch_size)
                     if len(line.split('=====')) != 2:
                         continue
                     input_text, target_text = line.split('=====')
+                    target_text = '\t' + target_text + '\n'
                     #print('==1')
                     for t, char in enumerate(input_text):
                         if char == '\n':
@@ -245,8 +268,16 @@ def generate_validation_data_from_file(path, batch_size):
                         #print('generate_arrays_from_file size:',i)
                         #print('getMemCpu=generate_arrays_from_file=',getMemCpu())
                         j = 0
+                        totalGenCnt = totalGenCnt + 1
+                        print('\n'+str(totalGenCnt)+' generator validate input data size='+str(validate_batch_size)+' range from ('+str(validdation_data_idx)+','+str(validdation_data_idx+validate_batch_size)+')')
+                        validdation_data_idx = validdation_data_idx + validate_batch_size
+                        if validdation_data_idx > 10000 :
+                        	validdation_data_idx = validdation_data_idx-10000
                         yield ([valid_encoder_input_data, valid_decoder_input_data],valid_decoder_target_data)
-                        gc.collect()
+                        valid_encoder_input_data[:]=0
+                        valid_decoder_input_data[:]=0
+                        valid_decoder_target_data[:]=0
+                        #gc.collect()
                         #K.clear_session()
                         #tf.reset_default_graph()  
                 except:
@@ -263,6 +294,8 @@ def generate_train_data_from_file(path, batch_size):
     decoder_target_data = np.zeros((batch_size, max_decoder_seq_length, num_decoder_tokens),dtype='float32')    
     print(' enter generate_arrays_from_file')
     i = 0
+    totalCallCnt = 0
+    train_data_idx = 0
     while True:
         print(' enter generate_train_data_from_file loop')
         with open(data_path) as f:
@@ -294,8 +327,16 @@ def generate_train_data_from_file(path, batch_size):
                         #print('generate_arrays_from_file size:',i)
                         #print('getMemCpu=generate_arrays_from_file=',getMemCpu())
                         i = 0
+                        totalCallCnt = totalCallCnt + 1
+                        #print('\n'+str(totalCallCnt)+' generator train input data size='+str(batch_size)+' range from ('+str(train_data_idx)+','+str(train_data_idx+batch_size)+')')
+                        train_data_idx = train_data_idx + batch_size
+                        if train_data_idx > real_sample_size :
+                        	train_data_idx = train_data_idx - real_sample_size
                         yield ([encoder_input_data, decoder_input_data],decoder_target_data)
-                        gc.collect()
+                        encoder_input_data[:]=0
+                        decoder_input_data[:]=0
+                        decoder_target_data[:]=0
+                        #gc.collect()
                         #K.clear_session()  
                         #tf.reset_default_graph()  
                 except:
@@ -305,17 +346,20 @@ def generate_train_data_from_file(path, batch_size):
 
 predictEpochCallback = PredictEpochCallback()
 print('getMemCpu=2',getMemCpu())
+callbacks_list = [predictEpochCallback, TensorBoard(log_dir='./log')]
+
+model.summary()
 
 
-#The default value for max_queue_size is 10, which is twice the number of your steps_per_epoch.
-#The generator is called 10 times before the training begins to fill up the queue.
+
 model.fit_generator(generate_train_data_from_file(data_path, batch_size),
-          epochs=epochs,
-          max_queue_size=40,
-          steps_per_epoch=20,#It should typically be equal to the number of samples of your dataset divided by the batch size
+          epochs=epochs,#The model is not trained for a number of iterations given by epochs, but merely until the epoch of index epochs is reached
+          max_queue_size=10,#The default value for max_queue_size is 10, which is twice the number of your steps_per_epoch.
+                            #The generator is called 10 times before the training begins to fill up the queue.
+          steps_per_epoch=300, #2000,#It should typically be equal to the number of samples of your dataset divided by the batch size
           verbose=1,
-          validation_data=generate_validation_data_from_file(test_data_path, batch_size),
-          validation_steps=10,
+          validation_data=generate_validation_data_from_file(test_data_path, batch_size),#to evaluate the loss and any model metrics at the end of each epoch
+          validation_steps=10,#It should typically be equal to the number of samples of your validation dataset divided by the batch size
           callbacks=[predictEpochCallback])
 print("model fit_generator")
 # Save model
@@ -323,20 +367,3 @@ model.save('s2s.h5')
 model_json = model.to_json()
 with open("model.json", "w") as json_file:
     json_file.write(model_json)
-
-
-
-
-                    
-
-
-
-
-
-
-
-
-
-
-
-
